@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSV GitHub Music Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="glass rounded-2xl p-6 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-emerald-400"><i class="fab fa-github mr-2"></i>GSV GITHUB MUSIC MANAGER</h1>
+                <p class="text-slate-400 text-sm mt-1">Quản lý nhạc, lấy link trực tiếp cho SA-MP lưu trữ trên GitHub</p>
+            </div>
+            <button onclick="exportMusicCfg()" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-lg text-sm font-bold shadow-lg transition">
+                <i class="fas fa-file-download mr-1"></i> Tải file music.cfg
+            </button>
+        </div>
+
+        <!-- Hướng dẫn lấy link GitHub -->
+        <div class="glass rounded-2xl p-4 mb-6 border-sky-500/50 text-sm text-slate-300">
+            <h3 class="font-bold text-sky-400 mb-1"><i class="fas fa-info-circle mr-1"></i> Cách lấy link MP3 chuẩn trên GitHub:</h3>
+            <p>1. Anh up file nhạc `.mp3` trực tiếp vào thư mục GitHub này (hoặc bấm nút Upload files).</p>
+            <p>2. Bấm vào file nhạc đó trên GitHub $\rightarrow$ Nhấn nút <b class="text-white">Download</b> hoặc <b class="text-white">Raw</b> $\rightarrow$ Copy đường dẫn URL.</p>
+            <p>3. Dán link đó vào khung bên dưới để thêm vào danh sách game.</p>
+        </div>
+
+        <!-- Thêm bài hát thủ công -->
+        <div class="glass rounded-2xl p-6 mb-6">
+            <h2 class="text-lg font-bold text-purple-400 mb-4"><i class="fas fa-plus-circle mr-2"></i>Thêm bài hát mới vào danh sách</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <input type="text" id="songName" placeholder="Tên bài hát (Không dấu: vd nhac nen)" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
+                <input type="text" id="songLink" placeholder="Dán link Raw/Mp3 từ GitHub vào đây..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white">
+            </div>
+            <button onclick="addSong()" class="bg-purple-600 hover:bg-purple-500 px-6 py-2.5 rounded-lg font-bold text-sm transition">
+                <i class="fas fa-plus mr-1"></i> Thêm vào danh sách
+            </button>
+        </div>
+
+        <!-- Trình phát nhạc thử -->
+        <div class="glass rounded-2xl p-4 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <i class="fas fa-headphones"></i>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400">Đang nghe thử:</div>
+                    <div id="nowPlaying" class="font-bold text-sm text-emerald-300">Chưa chọn bài hát</div>
+                </div>
+            </div>
+            <audio id="audioPlayer" controls class="w-full md:w-2/3 h-10"></audio>
+        </div>
+
+        <!-- Danh sách nhạc -->
+        <div class="glass rounded-2xl p-6">
+            <h2 class="text-lg font-bold text-white mb-4"><i class="fas fa-list mr-2"></i>Danh sách nhạc (<span id="songCount">0</span> bài)</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-700 text-slate-400 text-xs uppercase">
+                            <th class="py-3 px-2">#</th>
+                            <th class="py-3 px-2">Tên bài hát</th>
+                            <th class="py-3 px-2">Link MP3</th>
+                            <th class="py-3 px-2 text-right">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="songList" class="text-sm divide-y divide-slate-800"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Lấy danh sách từ bộ nhớ trình duyệt hoặc mặc định
+        let songs = JSON.parse(localStorage.getItem('github_samp_songs')) || [
+            { link: "http://a.top4top.io/m_3652mamt71.mp3", name: "nhac nen" },
+            { link: "http://a.top4top.io/m_3655umoif1.mp3", name: "bao nhieu buon vui" }
+        ];
+
+        function renderSongs() {
+            const tbody = document.getElementById('songList');
+            tbody.innerHTML = '';
+            document.getElementById('songCount').innerText = songs.length;
+
+            songs.forEach((song, index) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/50 transition">
+                        <td class="py-3 px-2 text-slate-400">${index + 1}</td>
+                        <td class="py-3 px-2 font-medium text-white">${song.name}</td>
+                        <td class="py-3 px-2 text-sky-400 truncate max-w-xs">${song.link}</td>
+                        <td class="py-3 px-2 text-right space-x-1 whitespace-nowrap">
+                            <button onclick="playSong(${index})" class="bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white px-2.5 py-1 rounded text-xs" title="Nghe thử"><i class="fas fa-play"></i></button>
+                            <button onclick="copyCmd(${index})" class="bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white px-2.5 py-1 rounded text-xs" title="Copy cú pháp thêm game"><i class="fas fa-terminal"></i> Copy Thêm</button>
+                            <button onclick="deleteSong(${index})" class="bg-rose-600/20 text-rose-400 hover:bg-rose-600 hover:text-white px-2.5 py-1 rounded text-xs" title="Xóa"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+            localStorage.setItem('github_samp_songs', JSON.stringify(songs));
+        }
+
+        function addSong() {
+            const name = document.getElementById('songName').value.trim();
+            const link = document.getElementById('songLink').value.trim();
+            if (!name || !link) return alert('Vui lòng nhập đầy đủ Tên và Link bài hát!');
+            
+            songs.push({ link, name });
+            renderSongs();
+            document.getElementById('songName').value = '';
+            document.getElementById('songLink').value = '';
+        }
+
+        function playSong(index) {
+            const player = document.getElementById('audioPlayer');
+            document.getElementById('nowPlaying').innerText = songs[index].name;
+            player.src = songs[index].link;
+            player.play();
+        }
+
+        function copyCmd(index) {
+            const cmd = `${songs[index].link} ${songs[index].name}`;
+            navigator.clipboard.writeText(cmd);
+            alert('Đã copy cú pháp:\n' + cmd + '\n\nVào game gõ /nghenhac -> Thêm bài hát -> Ctrl+V là xong!');
+        }
+
+        function deleteSong(index) {
+            if (confirm('Xóa bài hát này?')) {
+                songs.splice(index, 1);
+                renderSongs();
+            }
+        }
+
+        function exportMusicCfg() {
+            const content = songs.map(s => `${s.link} ${s.name}`).join('\n');
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'music.cfg';
+            a.click();
+        }
+
+        renderSongs();
+    </script>
+</body>
+</html>
